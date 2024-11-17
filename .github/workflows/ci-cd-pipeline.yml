@@ -9,18 +9,15 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     steps:
-      # שלב 1: Checkout למאגר
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # שלב 2: התקנת Java 17
       - name: Set up Java 17
         uses: actions/setup-java@v3
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      # שלב 3: הרצת הסקריפט לעדכון גרסת ה-patch
       - name: Run update-version script
         run: |
           chmod +x update-version.sh
@@ -60,3 +57,15 @@ jobs:
         run: |
           docker tag my-app:latest ${{ secrets.DOCKER_USERNAME }}/my-app:latest
           docker push ${{ secrets.DOCKER_USERNAME }}/my-app:latest
+
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            docker pull ${{ secrets.DOCKER_USERNAME }}/my-app:latest
+            docker stop my-app-container || true
+            docker rm my-app-container || true
+            docker run -d --name my-app-container -p 8080:8080 ${{ secrets.DOCKER_USERNAME }}/my-app:latest
